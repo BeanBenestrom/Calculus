@@ -1,7 +1,17 @@
-import pygame, threading, time, sys
+import pygame, threading, time, sys, json
 from math import *
 
 pygame.init()
+
+
+colors = {
+    0 : (255, 200, 0),
+    1 : (50, 50, 255),
+    2 : (255, 50, 50),
+    3 : (50, 255, 50),
+    5 : (50, 255, 255),
+    4 : (0, 0, 0)
+}
 
 
 # Classes ---------------------------------------------------------------------------------------------------------------------------------- #
@@ -71,10 +81,12 @@ class Camera:
 
         if key[pygame.K_e]:
             distance += distance*0.1
+            self.pos = [self.pos[0] + (self.pos[0]-cx)*0.1, self.pos[1] + (self.pos[1]-cy)*0.1]
             #f.parameters
 
         if key[pygame.K_q]:
             distance -= distance*0.1
+            self.pos = [self.pos[0] - (self.pos[0]-cx)*0.1, self.pos[1] - (self.pos[1]-cy)*0.1]
 
 
 class TextBox():
@@ -151,6 +163,7 @@ class Text():
 class Function:
     def __init__(self, color):
         self.vectors = []
+        self.line = True
         self.color = color
         self.use = True
         self.math = ""
@@ -178,6 +191,7 @@ class Function:
 
 
     def create_dots(self):
+        global times
         self.vectors = []
         index = 0
         size = 0.5
@@ -207,6 +221,60 @@ class Function:
         #     analogWrite(slot1, value/4*255);
         # }
         
+
+        j = 0.05
+        n = 10
+        self.drawDots = False
+
+        for i in range(int(-n/j), int(n/j) + 1):
+            i *= j
+            try:
+                # if times == 0: self.vectors.append([i, -sin(pi*pow(2*i*4, 2))*pi*2*i*4*1/5])
+                if times == 1: self.vectors.append([i, cos(pi*pow(i, 2))])
+                elif times == 2: self.vectors.append([i, -sin(pi*pow(i, 2))*pi*2*i])
+                elif times == 3: self.vectors.append([i, cos(i)+sin(i)])
+                elif times == 4: self.vectors.append([i, cos(pi*pow(i, 2))+cos(i)+sin(i)])
+                
+                else:
+                    self.vectors.append([cos(i), sin(i)])
+            except: pass
+        times += 1
+
+        return None
+
+        line = [1.5, 0]
+        if times == 0:
+            self.line = True
+            self.vectors.append([0, line[1]])
+            self.vectors.append([10, line[0]*10+line[1]])
+        else:
+            self.line = False
+            with open("graph5 copy 3.json") as f:
+                f = json.load(f)
+                for i in f:
+                    if times == 1:
+                        self.vectors.append([i[0], i[1]])
+                    elif times == 2:
+                        # print((line[0]*i[0]+line[1])-i[1])
+                        self.vectors.append([i[0], pow((line[0]*i[0]+line[1])-i[1], 2)*(1/(len(f)*2))])
+                if times > 2:
+                    self.line = True; tries = 0; dot = 0; j = 0
+                    for i in range(0, 5*10):
+                        i = i/10
+                        for n in f:
+                            dot += (i*n[0]+j)-n[1]
+                        self.vectors.append([i, dot*(1/100)])
+                        # tries += 0.1
+                        # for j in range(-3*10, 3*10):
+                        #     j = j / 10
+                        #     for n in f:
+                        #         dot += (i*n[0]+j)-n[1]
+                        #     self.vectors.append([tries, dot*(1/1000)])
+                        #     tries += 0.01
+        times += 1
+
+        return None
+
         j = 0.1
         n = 1
 
@@ -317,13 +385,12 @@ class Function:
 
 
     def drawFunc(self):
-        self.create_dots()
-        # if True: return
+        # if True: retur
         pref = None
         for i in self.vectors:
-            pygame.draw.circle(screen, self.color,
-            (int(i[0]*distance+Cam.pos[0]), int(-i[1]*distance+Cam.pos[1])), 6)
-            if pref:
+            if self.drawDots: 
+                pygame.draw.circle(screen, self.color, (int(i[0]*distance+Cam.pos[0]), int(-i[1]*distance+Cam.pos[1])), 6)
+            if pref and self.line:
                 try:
                     pygame.draw.line(
                         screen,
@@ -362,8 +429,10 @@ class Grid():
 
 # Functions -------------------------------------------------------------------------------------------------------------------------------- #
 #math[-1]
-def create_funtion():
-    Grid.functions.append(Function([255, 200, 0]))
+def create_funtion(color):
+    f = Function(color)
+    f.create_dots()
+    Grid.functions.append(f)
 
 
 def render():
@@ -377,6 +446,8 @@ def render():
         if Cam.open == i: i.drawSettings()
     for i in Grid.functions:
         i.drawButton()
+    pygame.draw.line(screen, (128, 0, 128), (cx-10, cy), (cx+10, cy), 1)
+    pygame.draw.line(screen, (128, 0, 128), (cx, cy-10), (cx, cy+10), 1)
     # size = (70, 70)
     # pygame.draw.rect(screen, (255, 0, 0), (-size[0]+size[0]*1, h-size[1], size[0], size[1]))
     # pygame.draw.rect(screen, (0, 255, 0), (-size[0]+size[0]*2, h-size[1], size[0], size[1]))
@@ -385,7 +456,7 @@ def render():
 
 # Variables -------------------------------------------------------------------------------------------------------------------------------- #
 
-w, h = 1200, 800; cx, cy = w//2, h//2; distance = 50; delfDistance = 50
+w, h = 1200, 800; cx, cy = w//2, h//2; distance = 50; delfDistance = 50; times = 0
 Grid, Cam = Grid(), Camera()
 screen = pygame.display.set_mode((w, h))
 clock = pygame.time.Clock()
@@ -418,7 +489,8 @@ while True:
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_f:
-                create_funtion()
+                color = colors.get(times)
+                create_funtion(color)
 
             Cam.triangle(event.key)
 
